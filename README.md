@@ -1,6 +1,8 @@
 # MMM-COVID19
 A [MagicMirror²](https://magicmirror.builders) helper module to track reported cases of COVID-19.
 
+Updated US counties and China cities data sources, add "zh-cn" language.
+
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://raw.githubusercontent.com/bibaldo/MMM-COVID19/master/LICENSE)
 
 ![Example](.github/dashboard.png)
