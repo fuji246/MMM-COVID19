@@ -1,0 +1,10 @@
+{
+    "Confirmed": "累计确诊",
+    "New Cases": "新增确诊",
+    "Deaths": "累计死亡",
+    "New Deaths": "新增死亡",
+    "Recovered": "康复",
+    "Active": "现存确诊",
+    "Worldwide" : "全球",
+    "statistic taken at ": "统计数据采集时间: "
+}

@@ -9,18 +9,22 @@
 
 Module.register("MMM-COVID19", {
   countriesStats: {},
+  usStats: {},
   globalStats: { "total_cases": "", "total_deaths": "", "total_recovered": "" }, // beautify things at start
   defaults: {
     header: 'COVID-19',    
     countries: [ "Argentina", "Italy", "Spain", "Germany" ], // default list
+    provinces: [ "California", "New York" ],
+    counties: [ "Santa Clara", "Fremont", "Alameda", "San Francisco", "Santa Cruz", "Monterey", "Los Angeles" ],
     orderCountriesByName: false,
     lastUpdateInfo: false,
     worldStats: false,
+    usStats: false,
     delta: false,
     rapidapiKey : "", // X-RapidAPI-Key provided at https://rapidapi.com/astsiatsko/api/coronavirus-monitor
     headerRowClass: "small", // small, medium or big
     infoRowClass: "big", // small, medium or big
-    updateInterval: 300000, // update interval in milliseconds
+    updateInterval: 30 * 60 * 1000, // update interval in milliseconds
     fadeSpeed: 4000
   },
 
@@ -30,10 +34,11 @@ Module.register("MMM-COVID19", {
 
   getTranslations: function() {
     return {
-      en: "translations/en.json",
-      de: "translations/de.json",
-      es: "translations/es.json"
-	  }
+      "en": "translations/en.json",
+      "de": "translations/de.json",
+      "es": "translations/es.json",
+      "zh-cn": "translations/zh-cn.json"
+    }
   },
 
   start: function() {
@@ -58,9 +63,14 @@ Module.register("MMM-COVID19", {
     if (this.config.worldStats) {
       this.sendSocketNotification('GET_GLOBAL_STATS', this.config.rapidapiKey)
     }
+
+    if (this.config.usStats) {
+      this.sendSocketNotification('GET_US_STATS', this.config.rapidapiKey)
+    }
   },
 
   socketNotificationReceived: function(notification, payload) {
+    Log.info('data ready: ' + notification)
     var self = this
     if (notification === "BYCOUNTRY_RESULT") {
       this.countriesStats = payload
@@ -68,6 +78,10 @@ Module.register("MMM-COVID19", {
     }
     if (notification === "GLOBAL_RESULT") {
       this.globalStats = payload
+      this.updateDom(self.config.fadeSpeed)
+    }
+    if (notification === "US_RESULT") {
+      this.usStats = payload
       this.updateDom(self.config.fadeSpeed)
     }
   },
@@ -78,8 +92,11 @@ Module.register("MMM-COVID19", {
 
   getDom: function() {
     var countriesList = this.config.countries
+    var countiesList = this.config.counties
+    var provincesList = this.config.provinces
     var countriesStats = this.countriesStats["countries_stat"]
     var globalStats = this.globalStats
+    var usStats = this.usStats
     if (this.config.orderCountriesByName && countriesStats) countriesStats.sort(this.compareValues('country_name'))
     
     var wrapper = document.createElement("table")
@@ -122,6 +139,7 @@ Module.register("MMM-COVID19", {
     headerRow.appendChild(headeractiveCell)
 
     wrapper.appendChild(headerRow)
+
     // WorldWide row, activate it via config
     if (this.config.worldStats) {
       let worldRow = document.createElement("tr"),
@@ -146,7 +164,7 @@ Module.register("MMM-COVID19", {
       confirmedCell.innerHTML = cases
       newCasesCell.className = 'number confirmed ' + this.config.infoRowClass
       if (newCases) {
-        newCasesCell.innerHTML = newCases
+        newCasesCell.innerHTML = '+' + newCases
       }
       deathsCell.className = 'number deaths ' + this.config.infoRowClass
       deathsCell.innerHTML = deaths
@@ -174,9 +192,15 @@ Module.register("MMM-COVID19", {
       wrapper.appendChild(worldRow)
     }
     // countries row, one per country listed at config => countries
+    var countriesCnt = 0
+    var totalCountriesCnt = countriesStats.length
+    var foundCountriesCnt = 0
+    var totalCountriesExpect = countriesList.length
     for (let key in countriesStats) {
+      countriesCnt += 1
       let value = countriesStats[key]
       if (countriesList.indexOf(value["country_name"]) != -1) {
+	foundCountriesCnt += 1
         let countryRow = document.createElement("tr"),
             countryNameCell = document.createElement("td"),
             confirmedCell = document.createElement("td"),
@@ -212,6 +236,9 @@ Module.register("MMM-COVID19", {
         activeCell.className = 'number active ' + this.config.infoRowClass
         activeCell.innerHTML = activeCases
 
+        if (countriesCnt == totalCountriesCnt || foundCountriesCnt == totalCountriesExpect) {
+          countryRow.className = 'world ' + this.config.infoRowClass
+        }
         countryRow.appendChild(countryNameCell)
         countryRow.appendChild(confirmedCell)
         if (this.config.delta) {
@@ -225,6 +252,69 @@ Module.register("MMM-COVID19", {
         countryRow.appendChild(activeCell)
         
         wrapper.appendChild(countryRow)
+      }
+    }
+
+    // US county row, active it via config
+    if (this.config.usStats) {
+      let locations = usStats["locations"]
+      Log.info('parsing US data, cnt = ' + usStats["locations"].length + ", countiesListSize = ", countiesList.length);
+      for (var idx = 0; idx < locations.length; ++idx) {
+	let item = locations[idx]
+	let countyName = item["county"]
+	let provinceName = item["province"]
+        if (provincesList.indexOf(provinceName) == -1) {
+          continue
+	}
+        if (countiesList.indexOf(countyName) != -1) {
+          Log.info('parsing data of ' + countyName);
+          let countyRow = document.createElement("tr"),
+              countyNameCell = document.createElement("td"),
+              confirmedCell = document.createElement("td"),
+              newCasesCell = document.createElement("td"),
+              deathsCell = document.createElement("td"),
+              newDeathsCell = document.createElement("td"),
+              recoveredCell = document.createElement("td"),
+              activeCell = document.createElement("td"),
+	      cases = item["latest"]["confirmed"]
+	      deaths = item["latest"]["deaths"]
+	      totalRecovered = item["latest"]["recovered"]
+	      activeCases = cases - deaths - totalRecovered;
+
+           countyRow.className = this.config.infoRowClass
+	   countyNameCell.innerHTML = countyName
+	   countyNameCell.className = this.config.infoRowClass
+	   confirmedCell.innerHTML = cases
+	   confirmedCell.className = 'number confirmed ' + this.config.infoRowClass
+           newCasesCell.className = 'number confirmed ' + this.config.infoRowClass
+           newCasesCell.innerHTML = '' // NA
+           deathsCell.innerHTML = deaths
+           deathsCell.className = 'number deaths ' + this.config.infoRowClass
+           newDeathsCell.className = 'number deaths ' + this.config.infoRowClass
+           newDeathsCell.innerHTML = '' // NA
+           deathsCell.innerHTML = deaths
+           deathsCell.className = 'number deaths ' + this.config.infoRowClass
+           newDeathsCell.innerHTML = '' // NA
+           newDeathsCell.className = 'number deaths ' + this.config.infoRowClass
+           recoveredCell.innerHTML = totalRecovered
+           recoveredCell.className = 'number recovered ' + this.config.infoRowClass
+           activeCell.innerHTML = activeCases
+           activeCell.className = 'number active ' + this.config.infoRowClass
+
+	   countyRow.appendChild(countyNameCell)
+	   countyRow.appendChild(confirmedCell)
+	   if (this.config.delta) {
+	     countyRow.appendChild(newCasesCell)
+	   }
+	   countyRow.appendChild(deathsCell)
+	   if (this.config.delta) {
+	     countyRow.appendChild(newDeathsCell)
+	   }
+	   countyRow.appendChild(recoveredCell)
+	   countyRow.appendChild(activeCell)
+
+	   wrapper.appendChild(countyRow)
+        }
       }
     }
     if (this.config.lastUpdateInfo) {

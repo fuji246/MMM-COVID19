@@ -12,6 +12,7 @@ var request = require('request')
 
 var byCountryUrl = 'https://coronavirus-monitor.p.rapidapi.com/coronavirus/cases_by_country.php'
 var worldStatsUrl = 'https://coronavirus-monitor.p.rapidapi.com/coronavirus/worldstat.php'
+var usStatsUrl = 'https://coronavirus-tracker-api.herokuapp.com/v2/locations?source=csbs&country_code=US&timelines=false'
 
 module.exports = NodeHelper.create({
   start: function () {
@@ -51,13 +52,32 @@ module.exports = NodeHelper.create({
       }
     })
   },
+  getUSStats: function(key) {
+    var self = this
+    var options = {
+      method: 'GET',
+      url: usStatsUrl
+    }
+    request(options, function (error, response, body) {
+      console.log('getUSStats statusCode ' + response.statusCode);
+      if (!error && response.statusCode == 200) {
+        var result = JSON.parse(body)
+	console.log('US_RESULT sent')
+        self.sendSocketNotification('US_RESULT', result)
+      }
+    })
+  },
   //Subclass socketNotificationReceived received.
   socketNotificationReceived: function(notification, payload) {
+    console.log("socketNotificationReceived: " + notification)
     if (notification === 'GET_BY_COUNTRY_STATS') {
       this.getStatsByCoutry(payload)
     }
     if (notification === 'GET_GLOBAL_STATS') {
       this.getGlobalStats(payload)
+    }
+    if (notification === 'GET_US_STATS') {
+      this.getUSStats(payload)
     }
   }
   
