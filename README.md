@@ -41,6 +41,12 @@ The following properties can be configured:
 | `headerRowClass`             | The font size of the row headers <br><br> **Possible values:** `'small'`, `'medium'`, `'big'` <br> **Default value:** `'small'`
 | `infoRowClass`               | The font size of data <br><br> **Possible values:** `'small'`, `'medium'`, `'big'` <br> **Default value:** `'big'`
 | `updateInterval`             | How often does the content needs to be fetched? (Milliseconds) <br><br> **Possible values:** `1000` - `86400000` <br> **Default value:** `300000` (5 minutes)
+| `usStats`                    | United States stats, <br> **Possible values:** `false` or `true` <br> **Default value:** `true`
+| `cnStats`                    | China stats <br> **Possible values:** `false` or `true` <br> **Default value:** `true`
+| `states`                     | states name list in USA, **Default value** `[ "California", "New York"]`
+| `counties`                   | county name list in USA, **Default value** `[ "Santa Clara", "Fremont", "Alameda", "San Francisco", "Los Angeles" ]`
+| `provinces`                  | province name list in China, **Default value** `[ "湖北", "浙江" ]`
+|  cities`                     | city name list in China, **Default value** `[ "武汉", "荆州", "杭州" ]`
 
 ## Config Example
 

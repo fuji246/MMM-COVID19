@@ -10,21 +10,25 @@
 Module.register("MMM-COVID19", {
   countriesStats: {},
   usStats: {},
+  cnStats: {},
   globalStats: { "total_cases": "", "total_deaths": "", "total_recovered": "" }, // beautify things at start
   defaults: {
     header: 'COVID-19',    
     countries: [ "Argentina", "Italy", "Spain", "Germany" ], // default list
-    provinces: [ "California", "New York" ],
-    counties: [ "Santa Clara", "Fremont", "Alameda", "San Francisco", "Santa Cruz", "Monterey", "Los Angeles" ],
+    states: [ "California", "New York"],
+    counties: [ "Santa Clara", "Fremont", "Alameda", "San Francisco", "Los Angeles" ],
+    provinces: [ "湖北", "浙江" ],
+    cities: [ "武汉", "荆州", "杭州" ],
     orderCountriesByName: false,
     lastUpdateInfo: false,
     worldStats: false,
-    usStats: false,
+    usStats: true,
+    cnStats: true,
     delta: false,
     rapidapiKey : "", // X-RapidAPI-Key provided at https://rapidapi.com/astsiatsko/api/coronavirus-monitor
     headerRowClass: "small", // small, medium or big
     infoRowClass: "big", // small, medium or big
-    updateInterval: 30 * 60 * 1000, // update interval in milliseconds
+    updateInterval: 60 * 60 * 1000, // update interval in milliseconds
     fadeSpeed: 4000
   },
 
@@ -67,6 +71,10 @@ Module.register("MMM-COVID19", {
     if (this.config.usStats) {
       this.sendSocketNotification('GET_US_STATS', this.config.rapidapiKey)
     }
+
+    if (this.config.cnStats) {
+      this.sendSocketNotification('GET_CN_STATS', this.config.rapidapiKey)
+    }
   },
 
   socketNotificationReceived: function(notification, payload) {
@@ -84,6 +92,10 @@ Module.register("MMM-COVID19", {
       this.usStats = payload
       this.updateDom(self.config.fadeSpeed)
     }
+    if (notification === "CN_RESULT") {
+      this.cnStats = payload
+      this.updateDom(self.config.fadeSpeed)
+    }
   },
 
   getHeader: function() {
@@ -93,10 +105,13 @@ Module.register("MMM-COVID19", {
   getDom: function() {
     var countriesList = this.config.countries
     var countiesList = this.config.counties
+    var statesList = this.config.states
+    var citiesList = this.config.cities
     var provincesList = this.config.provinces
     var countriesStats = this.countriesStats["countries_stat"]
     var globalStats = this.globalStats
     var usStats = this.usStats
+    var cnStats = this.cnStats
     if (this.config.orderCountriesByName && countriesStats) countriesStats.sort(this.compareValues('country_name'))
     
     var wrapper = document.createElement("table")
@@ -193,7 +208,10 @@ Module.register("MMM-COVID19", {
     }
     // countries row, one per country listed at config => countries
     var countriesCnt = 0
-    var totalCountriesCnt = countriesStats.length
+    var totalCountriesCnt = 0
+    if (countriesStats) {
+      totalCountriesCnt = countriesStats.length
+    }
     var foundCountriesCnt = 0
     var totalCountriesExpect = countriesList.length
     for (let key in countriesStats) {
@@ -256,14 +274,14 @@ Module.register("MMM-COVID19", {
     }
 
     // US county row, active it via config
-    if (this.config.usStats) {
+    if (this.config.usStats && "locations" in usStats) {
       let locations = usStats["locations"]
-      Log.info('parsing US data, cnt = ' + usStats["locations"].length + ", countiesListSize = ", countiesList.length);
+      Log.info('parsing US data, cnt = ' + locations.length + ", countiesListSize = " + countiesList.length);
       for (var idx = 0; idx < locations.length; ++idx) {
 	let item = locations[idx]
 	let countyName = item["county"]
-	let provinceName = item["province"]
-        if (provincesList.indexOf(provinceName) == -1) {
+	let stateName = item["province"]
+        if (statesList.indexOf(stateName) == -1) {
           continue
 	}
         if (countiesList.indexOf(countyName) != -1) {
@@ -291,12 +309,8 @@ Module.register("MMM-COVID19", {
            deathsCell.innerHTML = deaths
            deathsCell.className = 'number deaths ' + this.config.infoRowClass
            newDeathsCell.className = 'number deaths ' + this.config.infoRowClass
-           newDeathsCell.innerHTML = '' // NA
-           deathsCell.innerHTML = deaths
-           deathsCell.className = 'number deaths ' + this.config.infoRowClass
-           newDeathsCell.innerHTML = '' // NA
-           newDeathsCell.className = 'number deaths ' + this.config.infoRowClass
-           recoveredCell.innerHTML = totalRecovered
+	   newDeathsCell.innerHTML = '' // NA
+	   recoveredCell.innerHTML = totalRecovered
            recoveredCell.className = 'number recovered ' + this.config.infoRowClass
            activeCell.innerHTML = activeCases
            activeCell.className = 'number active ' + this.config.infoRowClass
@@ -317,6 +331,88 @@ Module.register("MMM-COVID19", {
         }
       }
     }
+
+    // China city row, active it via config
+    if (this.config.cnStats && "data" in cnStats) {
+      let locations = cnStats["data"]["areaTree"]
+      Log.info('parsing China data, cnt = ' + locations.length + ", provincesListSize = " + provincesList.length + ", citiesListSize = " + citiesList.length);
+      for (var cidx = 0; cidx < locations.length; ++cidx) {
+	let loc = locations[cidx ]
+	let countryName = loc["name"]
+	if (countryName != "中国") {
+	  continue;
+	}
+
+	let subLocations = loc["children"]
+	for (var subIdx = 0; subIdx < subLocations.length; ++subIdx) {
+	  let provinceName = subLocations[subIdx]["name"]
+          if (provincesList.indexOf(provinceName) == -1) {
+            continue
+	  }
+	  let items = subLocations[subIdx]["children"]
+	  for (var cityIdx = 0; cityIdx < items.length; ++cityIdx) {
+	    let item = items[cityIdx]
+	    let cityName = item["name"]
+            if (citiesList.indexOf(cityName) != -1) {
+              Log.info('parsing data of ' + cityName);
+              let cityRow = document.createElement("tr"),
+                  cityNameCell = document.createElement("td"),
+                  confirmedCell = document.createElement("td"),
+                  newCasesCell = document.createElement("td"),
+                  deathsCell = document.createElement("td"),
+                  newDeathsCell = document.createElement("td"),
+                  recoveredCell = document.createElement("td"),
+                  activeCell = document.createElement("td"),
+                  cases = item["total"]["confirm"]
+                  newCases = item["today"]["confirm"]
+                  deaths = item["total"]["dead"]
+                  newDeaths = item["today"]["dead"]
+                  totalRecovered = item["total"]["heal"]
+                  activeCases = cases - deaths - totalRecovered;
+
+              cityRow.className = this.config.infoRowClass
+              cityNameCell.innerHTML = cityName
+              cityNameCell.className = this.config.infoRowClass
+              confirmedCell.innerHTML = cases
+              confirmedCell.className = 'number confirmed ' + this.config.infoRowClass
+              newCasesCell.className = 'number confirmed ' + this.config.infoRowClass
+              if (newCases > 0) {
+                newCasesCell.innerHTML = '+' + newCases
+              } else {
+                newCasesCell.innerHTML = ''
+              }
+              deathsCell.innerHTML = deaths
+              deathsCell.className = 'number deaths ' + this.config.infoRowClass
+              newDeathsCell.className = 'number deaths ' + this.config.infoRowClass
+              if (newDeaths > 0) {
+                newDeathsCell.innerHTML = '+' + newDeaths
+              } else {
+                newDeathsCell.innerHTML = ''
+              }
+              recoveredCell.innerHTML = totalRecovered
+              recoveredCell.className = 'number recovered ' + this.config.infoRowClass
+              activeCell.innerHTML = activeCases
+              activeCell.className = 'number active ' + this.config.infoRowClass
+
+              cityRow.appendChild(cityNameCell)
+              cityRow.appendChild(confirmedCell)
+              if (this.config.delta) {
+                cityRow.appendChild(newCasesCell)
+              }
+              cityRow.appendChild(deathsCell)
+              if (this.config.delta) {
+                cityRow.appendChild(newDeathsCell)
+              }
+              cityRow.appendChild(recoveredCell)
+              cityRow.appendChild(activeCell)
+
+              wrapper.appendChild(cityRow)
+            }
+	  }
+	}
+      }
+    }
+
     if (this.config.lastUpdateInfo) {
       let statsDateRow = document.createElement("tr"),
           statsDateCell = document.createElement("td");
@@ -329,7 +425,7 @@ Module.register("MMM-COVID19", {
       wrapper.appendChild(statsDateRow)
     }
 
-		return wrapper
+    return wrapper
   },
   // sort according to some key and the order could be 'asc' or 'desc'
   compareValues: function(key, order = 'asc') {

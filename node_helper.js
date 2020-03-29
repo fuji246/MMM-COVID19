@@ -13,6 +13,7 @@ var request = require('request')
 var byCountryUrl = 'https://coronavirus-monitor.p.rapidapi.com/coronavirus/cases_by_country.php'
 var worldStatsUrl = 'https://coronavirus-monitor.p.rapidapi.com/coronavirus/worldstat.php'
 var usStatsUrl = 'https://coronavirus-tracker-api.herokuapp.com/v2/locations?source=csbs&country_code=US&timelines=false'
+var cnStatsUrl = 'https://c.m.163.com/ug/api/wuhan/app/data/list-total'
 
 module.exports = NodeHelper.create({
   start: function () {
@@ -67,6 +68,21 @@ module.exports = NodeHelper.create({
       }
     })
   },
+  getCNStats: function(key) {
+    var self = this
+    var options = {
+      method: 'GET',
+      url: cnStatsUrl
+    }
+    request(options, function (error, response, body) {
+      console.log('getCNStats statusCode ' + response.statusCode);
+      if (!error && response.statusCode == 200) {
+        var result = JSON.parse(body)
+	console.log('CN_RESULT sent')
+        self.sendSocketNotification('CN_RESULT', result)
+      }
+    })
+  },
   //Subclass socketNotificationReceived received.
   socketNotificationReceived: function(notification, payload) {
     console.log("socketNotificationReceived: " + notification)
@@ -78,6 +94,9 @@ module.exports = NodeHelper.create({
     }
     if (notification === 'GET_US_STATS') {
       this.getUSStats(payload)
+    }
+    if (notification === 'GET_CN_STATS') {
+      this.getCNStats(payload)
     }
   }
   
